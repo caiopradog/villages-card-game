@@ -1,6 +1,10 @@
 import random
 from . import Player
-from .. import Deck, Card
+from classes import Deck
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cards import BaseCard
 
 
 def choose_random(options, min_choice: int = 1, max_choice: int = 1):
@@ -34,7 +38,7 @@ class AiPlayer(Player):
     def choose_card_to_discard(self):
         return self.choose_card_from_hand(max_choice=1)
 
-    def choose_card_to_battle(self, options, side_battle) -> (Card, Deck):
+    def choose_card_to_battle(self, options, side_battle) -> ("BaseCard", Deck):
         card = choose_random(options)
         origin = self.hand if card in self.hand else self.get_villagers_village(card)
         origin_type = 'hand' if card in self.hand else card.color

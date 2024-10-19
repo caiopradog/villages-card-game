@@ -1,17 +1,14 @@
-from expansions import expansion_cards
-from .card import Card
 from constants import TYPE, COLOR
 import random
-import uuid
 import math
 
 
 class Deck:
-    def __init__(self, expansions=None):
-        if expansions is None:
-            expansions = []
+    def __init__(self, available_cards=None):
+        if available_cards is None:
+            available_cards = []
         self.cards = []
-        self.expansions = expansions
+        self.available_cards = available_cards
 
     def __repr__(self):
         return ' | '.join(map(str, self.cards))
@@ -100,9 +97,7 @@ class Deck:
             TYPE.ANIMAL: 7,
             TYPE.BUILDING: 5,
         }
-        available_cards = []
-        for expansion in self.expansions:
-            available_cards = available_cards + expansion_cards[expansion]
+
         card_pool = {
             COLOR.RED: [],
             COLOR.BLUE: [],
@@ -115,18 +110,10 @@ class Deck:
             TYPE.ANIMAL: [],
             TYPE.BUILDING: [],
         }
-        for card_template in available_cards:
-            for color in card_template['colors']:
-                key = color if card_template['type'] in [TYPE.UNIT, TYPE.MONSTER] else card_template['type']
-                card = Card(
-                    uuid=uuid.uuid4(),
-                    unit=card_template['unit'],
-                    unit_type=card_template['type'],
-                    color=color,
-                    power=card_template['power'],
-                    gold=card_template['gold']
-                )
-                card_pool[key] += [card]*card_template['count']
+        for card in self.available_cards:
+            for color in card['colors']:
+                key = color if card['type'] in [TYPE.UNIT, TYPE.MONSTER] else card['type']
+                card_pool[key].append(card)
 
         final_card_list = []
         for card_type in card_pool:

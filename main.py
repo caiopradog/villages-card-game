@@ -1,9 +1,13 @@
+
 from classes import Table, Player, AiPlayer
 from constants import EXPANSION
-from classes.players.aiplayer import choose_random as choose_option
+from expansions import get_cards
 
 if __name__ == '__main__':
-    table = Table([EXPANSION.BASE])
+    # TODO: Create all BASE cards classes
+
+    in_game_cards = get_cards([EXPANSION.BASE])
+    table = Table(in_game_cards)
     players = [
         Player('Caio', table),
         AiPlayer('John', table),

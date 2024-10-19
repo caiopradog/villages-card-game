@@ -2,9 +2,9 @@ from .deck import Deck
 
 
 class Table:
-    def __init__(self, expansions):
+    def __init__(self, available_cards):
         self.players = []
-        self.deck = Deck(expansions)
+        self.deck = Deck(available_cards)
         self.deck.fill_deck()
         self.deck.shuffle()
         self.discard = Deck()
