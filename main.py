@@ -1,10 +1,10 @@
 
-from classes import Table, Player, AiPlayer
+from table import Table, Player, AiPlayer
 from constants import EXPANSION
 from expansions import get_cards
 
 if __name__ == '__main__':
-    # TODO: Create all BASE cards classes
+    # TODO: Create all BASE cards table
 
     in_game_cards = get_cards([EXPANSION.BASE])
     table = Table(in_game_cards)

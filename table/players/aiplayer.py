@@ -1,10 +1,7 @@
 import random
 from . import Player
-from classes import Deck
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cards import BaseCard
+from table import Deck
+from cards import BaseCard
 
 
 def choose_random(options, min_choice: int = 1, max_choice: int = 1):

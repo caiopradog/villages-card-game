@@ -2,10 +2,8 @@ from constants import COLOR, TYPE
 import uuid
 from helper import choose_option
 from .. import Deck
-from typing import Self, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from cards import BaseCard
+from typing import Self
+from cards import BaseCard
 
 
 def count_gold(cards):

@@ -1,9 +1,7 @@
 from constants import COLOR, EXPANSION
 import cards
-from typing import TYPE_CHECKING
+from cards import BaseCard
 
-if TYPE_CHECKING:
-    from classes import BaseCard
 
 expansion_cards = {
     EXPANSION.BASE: [{
