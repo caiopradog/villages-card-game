@@ -2,12 +2,13 @@ from .basecard import BaseCard
 from constants import TYPE
 
 
-class Princess(BaseCard):
+class Farmer(BaseCard):
     def __init__(self, color):
         super().__init__(
-            unit='princess',
+            unit='farmer',
             unit_type=TYPE.UNIT,
             color=color,
-            power=0,
-            gold=5
+            power=1,
+            gold=3,
+            enable_animal=True
         )

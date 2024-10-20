@@ -111,9 +111,8 @@ class Deck:
             TYPE.BUILDING: [],
         }
         for card in self.available_cards:
-            for color in card['colors']:
-                key = color if card['type'] in [TYPE.UNIT, TYPE.MONSTER] else card['type']
-                card_pool[key].append(card)
+            key = card.color if card.type in [TYPE.UNIT, TYPE.MONSTER] else card.type
+            card_pool[key].append(card)
 
         final_card_list = []
         for card_type in card_pool:
@@ -131,13 +130,13 @@ class Deck:
                 random.shuffle(unneeded_cards)
 
                 if not len(building_enabling_cards):
-                    building_enabling_in_pool = [card for card in card_list if card.can_support_building()]
+                    building_enabling_in_pool = [card for card in card_list if card.enable_building]
                     selected_card = building_enabling_in_pool.pop()
                     filtered_cards.append(selected_card)
                     card_list.remove(selected_card)
 
                 if not len(animal_enabling_cards):
-                    animal_enabling_in_pool = [card for card in card_list if card.can_support_animal()]
+                    animal_enabling_in_pool = [card for card in card_list if card.enable_animal]
                     selected_card = animal_enabling_in_pool.pop()
                     filtered_cards.append(selected_card)
                     card_list.remove(selected_card)

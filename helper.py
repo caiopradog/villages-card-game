@@ -1,4 +1,3 @@
-from copy import deepcopy
 
 
 def print_options(options, chosen, page_count, end=False, hide_options=True):
@@ -29,9 +28,10 @@ def choose_option(
     optional=True,
     page_count=5,
     min_choice: int = 1,
-    max_choice: int = 1
+    max_choice: int = 1,
 ):
     max_choice = len(original_options) if max_choice < 0 else max_choice
+    single_option = max_choice == 1
 
     remaining_options = list(original_options)
     end_selection = False
@@ -64,4 +64,4 @@ def choose_option(
             chosen.append(chosen_option)
         except ValueError:
             print('Invalid option!')
-    return None if len(chosen) == 0 else chosen[0] if len(chosen) == 1 else chosen
+    return None if len(chosen) == 0 else chosen[0] if single_option else chosen

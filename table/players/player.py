@@ -13,10 +13,6 @@ def count_gold(cards):
     return gold
 
 
-def attack_card(attacker, defender):
-    return attacker.power >= defender.power
-
-
 class Player:
     def __init__(self, name, table):
         self.id = uuid.uuid4()
@@ -35,13 +31,23 @@ class Player:
         self.score = 0
         self.table = table
 
+        # Battle Data
+        self.attacking_card: BaseCard | None = None
+        self.attacked_player: Self | None = None
+        self.attacked_village = None
+        self.defending_card: BaseCard | None = None
+        self.kidnapped_villager: BaseCard | None = None
+        self.battle_won = None
+
     # GETTERS
+    def __str__(self) -> str:
+        return self.name
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
     def title(self) -> str:
         return self.name.title()
-
-    def destroy_card(self, deck, card):
-        deck.remove_card(card)
-        self.cemetery.add_card(card)
 
     def get_villages_to_build(self) -> [str]:
         hand_by_colors = {}
@@ -64,16 +70,16 @@ class Player:
 
     def get_attackable_players(self) -> [Self]:
         attackable_players = []
-        for player in self.get_other_players():
+        for player in self.get_opponents():
             if player.get_built_villages():
                 attackable_players.append(player)
 
         return attackable_players
 
-    def get_other_players(self) -> [Self]:
+    def get_opponents(self) -> [Self]:
         return [player for player in self.table.players if player != self]
 
-    def get_all_villagers(self) -> ["BaseCard"]:
+    def get_all_villagers(self) -> [BaseCard]:
         return [card for color in self.villages for card in self.villages[color]]
 
     def get_available_actions(self) -> [str]:
@@ -87,7 +93,7 @@ class Player:
     def get_villagers_village(self, villager) -> Deck:
         return self.villages[villager.color]
 
-    def get_villagers(self, unit=None, color=None) -> ["BaseCard"]:
+    def get_villagers(self, unit=None, color=None) -> [BaseCard]:
         return [
             card for card in self.get_all_villagers()
             if (unit is None or (unit is not None and unit == card.unit))
@@ -98,51 +104,58 @@ class Player:
         colors = [card.color for card in self.hand]
         return list(set(colors))
 
-    def get_animals_in_hand(self) -> ["BaseCard"]:
+    def get_animals_in_hand(self) -> [BaseCard]:
         return [card for card in self.hand if card.type == TYPE.ANIMAL]
 
-    def get_buildings_in_hand(self) -> ["BaseCard"]:
+    def get_buildings_in_hand(self) -> [BaseCard]:
         return [card for card in self.hand if card.type == TYPE.BUILDING]
 
-    def get_villager_in_village(self, color, unit) -> ["BaseCard"]:
+    def get_villager_in_village(self, color, unit) -> [BaseCard]:
         return [card for card in self.villages[color] if card.unit == unit]
 
-    def village_supports_animals(self, color) -> ["BaseCard"]:
+    def village_supports_animals(self, color) -> [BaseCard]:
         return [card for card in self.villages[color] if card.unit in ['farmer']]
 
-    def village_supports_buildings(self, color) -> ["BaseCard"]:
+    def village_supports_buildings(self, color) -> [BaseCard]:
         return [card for card in self.villages[color] if card.unit in ['builder']]
 
-    def get_cards_in_hand(self, filter, value):
-        return [card for card in self.hand if getattr(card, filter) == value]
+    def get_cards_in_hand(self, key, value):
+        return [card for card in self.hand if getattr(card, key) == value]
 
     def get_incrementable_villages(self) -> dict:
         built_villages = self.get_built_villages()
 
         available_villages = {}
         for village in built_villages:
-            available_villages[village] = self.get_cards_in_hand('color', village)
-            if self.village_supports_animals(village):
-                available_villages[village] += self.get_cards_in_hand('type', TYPE.ANIMAL)
+            color_cards_in_hand = self.get_cards_in_hand('color', village)
+            if len(color_cards_in_hand) > 0:
+                available_villages[village] = self.get_cards_in_hand('color', village)
+                if self.village_supports_animals(village):
+                    available_villages[village] += self.get_cards_in_hand('type', TYPE.ANIMAL)
 
-            if self.village_supports_buildings(village):
-                available_villages[village] += self.get_cards_in_hand('type', TYPE.BUILDING)
+                if self.village_supports_buildings(village):
+                    available_villages[village] += self.get_cards_in_hand('type', TYPE.BUILDING)
 
         return available_villages
 
-    def get_cards_to_add_to_villages(self) -> ["BaseCard"]:
+    def get_cards_to_add_to_villages(self) -> [BaseCard]:
         return [card for card in self.hand if card.color in self.get_built_villages()]
 
-    def get_card_to_battle(self, village=None) -> ("BaseCard", Deck):
+    def get_card_to_battle(self, village=None) -> BaseCard:
         options = self.hand + self.get_villagers(color=village)
         options = [card for card in options if card.type == TYPE.UNIT]
         side_battle = 'attack' if village is None else 'defend'
         return self.choose_card_to_battle(options, side_battle)
 
+    def get_card_origin(self, card):
+        origin = self.hand if card in self.hand else self.get_villagers_village(card)
+        origin_type = 'hand' if card in self.hand else card.color
+        return origin, origin_type
+
     # END GETTERS
 
     # CHOOSERS
-    def choose_village_to_build(self) -> str|None:
+    def choose_village_to_build(self) -> str | None:
         available_to_build = self.get_villages_to_build()
         if len(available_to_build) == 0:
             return None
@@ -152,7 +165,7 @@ class Player:
     def choose_action(self, actions) -> str:
         return choose_option(actions, 'Choose an act: ', optional=False)
 
-    def choose_card_from_hand(self, reason, optional=False) -> "BaseCard":
+    def choose_card_from_hand(self, reason, optional=False) -> BaseCard:
         text = f'Choose a card to {reason}: '
         return choose_option(self.hand, text, optional=optional)
 
@@ -161,24 +174,21 @@ class Player:
         return choose_option(players, 'Choose player to attack: ', optional=False)
 
     def choose_player_to_trade(self) -> Self:
-        return choose_option(self.get_other_players(), 'Choose player to trade: ', optional=False)
+        return choose_option(self.get_opponents(), 'Choose player to trade: ', optional=False)
 
-    def choose_card_to_discard(self) -> "BaseCard":
+    def choose_card_to_discard(self) -> BaseCard:
         return self.choose_card_from_hand('discard')
 
-    def choose_card_to_trade(self) -> "BaseCard":
+    def choose_card_to_trade(self) -> BaseCard:
         return self.choose_card_from_hand('trade')
 
-    def choose_card_to_battle(self, options, side_battle) -> ("BaseCard", Deck):
-        card = choose_option(options, f'Choose a villager to {side_battle}: ', optional=False)
-        origin = self.hand if card in self.hand else self.get_villagers_village(card)
-        origin_type = 'hand' if card in self.hand else card.color
-        return card, origin, origin_type
+    def choose_card_to_battle(self, options, side_battle) -> BaseCard:
+        return choose_option(options, f'Choose a villager to {side_battle}: ', optional=False)
 
     def choose_battle_reward(self, rewards):
         return choose_option(rewards, 'Choose battle reward: ', page_count=3, optional=False)
 
-    def choose_village_to_attack(self, attacked_player):
+    def choose_village_to_attack(self, attacked_player) -> str:
         return choose_option(attacked_player.get_built_villages(),
                              'Choose village to attack: ',
                              page_count=4,
@@ -203,31 +213,26 @@ class Player:
     def choose_cards_to_add_to_village(self, village):
         available_cards = self.get_incrementable_villages()[village]
         return choose_option(available_cards, 'Choose cards to add to village: ', max_choice=-1)
-
     # END CHOOSERS
 
     # ACTIONS
     def draw_cards(self, qtd):
-        if self.name == 'Caio' and qtd == 8:
-            animal = [card for card in self.table.deck if card.type == TYPE.ANIMAL][0:1]
-            building = [card for card in self.table.deck if card.type == TYPE.BUILDING][0:1]
-            self.table.deck.remove_cards(animal)
-            self.table.deck.remove_cards(building)
-            farmer_builder = [card for card in self.table.deck if card.color == COLOR.RED and (card.unit == 'farmer' or card.unit == 'builder')][0:2]
-            self.table.deck.remove_cards(farmer_builder)
-            red_cards = [card for card in self.table.deck if card.color == COLOR.RED][0:4]
-            stacked_hand = animal + building + farmer_builder + red_cards
-            self.table.deck.remove_cards(red_cards)
-            self.hand.add_cards(stacked_hand)
-        else:
-            self.hand.add_cards(self.table.deck.draw_cards(qtd))
+        self.hand.add_cards(self.table.deck.draw_cards(qtd))
+
+    def destroy_card(self, deck, card):
+        deck.remove_card(card)
+        self.cemetery.add_card(card)
+
+    def discard_card(self, card):
+        self.hand.remove_card(card)
+        self.table.discard.add_card(card)
 
     def show_hand(self):
         self.hand.show_deck()
 
     def count_score(self):
         positive = count_gold(self.get_all_villagers())
-        negative = count_gold(self.hand + self.cemetery) * -1
+        negative = count_gold(list(self.hand) + list(self.cemetery)) * -1
         self.score += positive - negative
 
     def build_village(self, color):
@@ -236,17 +241,63 @@ class Player:
         self.hand.remove_cards(chosen_cards)
         self.villages[color].add_cards(chosen_cards)
 
-    def add_card_to_village(self, village: str, card: "BaseCard"):
+    def add_card_to_village(self, village: str, card: BaseCard):
         self.villages[village].add_card(card)
         self.hand.remove_card(card)
 
-    def add_cards_to_village(self, village: str, cards: ["BaseCard"]):
+    def add_cards_to_village(self, village: str, cards: [BaseCard]):
         for card in cards:
             self.add_card_to_village(village, card)
 
-    def discard_card(self, card):
-        self.hand.remove_card(card)
-        self.table.discard.add_card(card)
+    def attack_player(self):
+        if not self.table.is_testing:
+            print(f'{self.attacking_card} vs {self.defending_card}!')
+        self.battle_won = self.attacking_card.power >= self.defending_card.power
+
+    def destroy_opponent_card(self, card):
+        opponent = self.attacked_player
+        (deck, deck_name) = opponent.get_card_origin(card)
+        opponent.destroy_card(deck, card)
+
+    def remove_opponent_card(self, card):
+        opponent = self.attacked_player
+        (deck, deck_name) = opponent.get_card_origin(card)
+        deck.remove_card(card)
+
+    def kidnap_opponent_card(self, card):
+        self.remove_opponent_card(card)
+        self.hand.add_card(card)
+
+    def destroy_opponent_defender(self):
+        self.destroy_opponent_card(self.defending_card)
+
+    def resolve_battle_reward(self, reward):
+        if reward == 'destroy defender':
+            self.destroy_opponent_defender()
+        else:
+            self.kidnap_opponent_card(self.kidnapped_villager)
+
+    def resolve_after_battle(self):
+        (att_deck, att_deck_name) = self.get_card_origin(self.attacking_card)
+        if not self.battle_won or att_deck_name == 'hand':
+            origin_text = 'hired' if att_deck_name == 'hand' else 'defeated'
+            if not self.table.is_testing:
+                print(f'Attacking {origin_text} unit {self.attacking_card} discarded!')
+            self.destroy_card(att_deck, self.attacking_card)
+
+        (def_deck, def_deck_name) = self.attacked_player.get_card_origin(self.defending_card)
+        if self.kidnapped_villager != self.defending_card and def_deck_name == 'hand':
+            if not self.table.is_testing:
+                print(f'Defending hired unit {self.defending_card} discarded!')
+            self.attacked_player.destroy_card(def_deck, self.defending_card)
+
+    def reset_battle_data(self):
+        self.attacking_card = None
+        self.attacked_player: Self = None
+        self.attacked_village = None
+        self.defending_card = None
+        self.kidnapped_villager = None
+        self.battle_won = None
 
     # END ACTIONS
 
@@ -261,35 +312,24 @@ class Player:
         self.build_village(color)
 
     def phase_act_attack(self):
-        (attacking_card, att_card_origin, att_card_origin_type) = self.get_card_to_battle()
-        attacked_player = self.choose_player_to_attack()
-        attacked_village = self.choose_village_to_attack(attacked_player)
-        (defender_card, def_card_origin, def_card_origin_type) = attacked_player.get_card_to_battle(attacked_village)
-        battle_result = attack_card(attacking_card, defender_card)
-        print(f'{attacking_card} vs {defender_card}!')
-        if battle_result:
+        self.attacking_card = self.get_card_to_battle()
+        self.attacked_player = self.choose_player_to_attack()
+        self.attacked_village = self.choose_village_to_attack(self.attacked_player)
+        self.defending_card = self.attacked_player.get_card_to_battle(self.attacked_village)
+        self.attack_player()
+
+        if self.battle_won:
             print('Battle Won!')
             reward = self.choose_battle_reward(['destroy defender', 'kidnap defender', 'kidnap villager'])
-            if reward == 'destroy defender':
-                self.destroy_card(def_card_origin, defender_card)
+            if reward == 'kidnap villager':
+                self.kidnapped_villager = self.choose_villager_from_village(self.attacked_village, self.attacked_player)
             elif reward == 'kidnap defender':
-                def_card_origin.remove_card(defender_card)
-                if reward == 'kidnap defender':
-                    self.hand.add_card(defender_card)
-            else:
-                kidnapped_villager = self.choose_villager_from_village(attacked_village, attacked_player)
-                kidnapped_village = attacked_player.get_villagers_village(kidnapped_villager)
-                kidnapped_village.remove_card(kidnapped_villager)
-                self.hand.add_card(kidnapped_villager)
-                if kidnapped_villager != defender_card and def_card_origin_type == 'hand':
-                    print(f'Defending hired unit {defender_card} discarded!')
-                    attacked_player.destroy_card(def_card_origin, defender_card)
-            if att_card_origin_type == 'hand':
-                print(f'Attacking hired unit {attacking_card} discarded!')
-                self.destroy_card(att_card_origin, attacking_card)
+                self.kidnapped_villager = self.defending_card
+            self.resolve_battle_reward(reward)
         else:
             print('Battle Lost!')
-            self.destroy_card(att_card_origin, attacking_card)
+        self.resolve_after_battle()
+        self.reset_battle_data()
 
     def phase_act_trade(self):
         giving_card = self.choose_card_to_trade()

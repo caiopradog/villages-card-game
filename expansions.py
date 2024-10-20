@@ -120,7 +120,7 @@ expansion_cards = {
 }
 
 
-def get_cards(expansions: list) -> ["BaseCard"]:
+def get_cards(expansions: list) -> [BaseCard]:
     available_cards = []
 
     for expansion in expansions:
